@@ -75,7 +75,12 @@ describe("scripted coach", () => {
       session,
       "I operate in real estate and fleet sales while building AI that rewires how opportunity flows. I want a BD partner, not another pure IC.",
     );
-    expect(session.decisions.oneLiner).toBeTruthy();
+    expect(session.decisions.oneLiner).toMatch(/I operate in real estate/i);
+    expect(session.decisions.oneLiner).not.toMatch(/obviously wrong/i);
+    expect(session.step).toBe("liner");
+
+    session = play(session, "I rewire opportunity flow. Looking for a BD partner, not a pure IC.");
+    expect(session.decisions.oneLiner15).toMatch(/rewire opportunity flow/i);
     expect(session.step).toBe("flags");
 
     session = play(session, "Green flag is a founder seat with customer contact. Red flag is enablement theater. I will use the filter question.");
@@ -93,6 +98,8 @@ describe("scripted coach", () => {
     expect(session.decisions.successMetric).toMatch(/build partner/i);
     expect(session.decisions.mtpPick).toBe("opportunity-routing");
     expect(session.decisions.moonshotPick).toBe("opportunity-os");
+    expect(session.decisions.oneLiner).toMatch(/I operate in real estate/i);
+    expect(session.decisions.oneLiner15).toMatch(/rewire opportunity flow/i);
   });
 
   it("challenges Revalize-shaped seats without leaving the brief", () => {

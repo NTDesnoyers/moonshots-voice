@@ -50,7 +50,7 @@ export function openingLine(): string {
 
 export function nextCoachTurn(session: SessionState, userText: string): CoachTurn {
   const text = userText.trim();
-  const extracted = extractFromUtterance(text, session.decisions);
+  const extracted = extractFromUtterance(text, session.decisions, session.step);
   const decisions = mergeDecisions(session.decisions, extracted);
   const nav = detectNav(text);
   const challenge = isRevalizeShaped(text);
@@ -111,7 +111,8 @@ function maybeAdvance(step: StepId, decisions: Decisions, text: string): {
     case "applies":
       return toStep(decisions.reApply && decisions.afsApply ? "liner" : "applies");
     case "liner":
-      return toStep(decisions.oneLiner ? "flags" : "liner");
+      if (!decisions.oneLiner) return toStep("liner");
+      return toStep(decisions.oneLiner15 ? "flags" : "liner");
     case "flags":
       return toStep(text.length > 8 ? "day-map" : "flags");
     case "day-map":
@@ -209,13 +210,16 @@ function lineFor(step: StepId, decisions: Decisions, lastUser: string): string {
             : "Default from the brief: RE five power users on one narrow workflow. AFS same patterns, separate data planes.",
       ].join(" ");
     case "liner":
+      if (decisions.oneLiner && !decisions.oneLiner15) {
+        return "Thirty-second is on the card. Now cut it to fifteen seconds. Same bones, no extras. Or say next to keep moving.";
+      }
       return [
         "Network kit. Thirty seconds, then we cut it.",
         `Working one-liner: ${ONE_LINER}`,
         `Toward Salim: ${ONE_LINER_VARIANTS.exo}`,
         `Toward Diamandis: ${ONE_LINER_VARIANTS.abundance}`,
         `Toward XPRIZE builders: ${ONE_LINER_VARIANTS.xprize}`,
-        "Say the thirty-second version in your mouth. Then a fifteen-second cut.",
+        "Say the thirty-second version in your mouth.",
       ].join(" ");
     case "flags":
       return [

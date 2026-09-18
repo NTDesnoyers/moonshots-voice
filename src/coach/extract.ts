@@ -1,5 +1,5 @@
 import { MTP_OPTIONS, ONE_LINER } from "../content/brief";
-import type { Decisions, MoonshotId, MtpId } from "../types";
+import type { Decisions, MoonshotId, MtpId, StepId } from "../types";
 
 const MTP_ALIASES: Array<{ id: MtpId; patterns: RegExp[] }> = [
   {
@@ -197,61 +197,79 @@ export function mergeDecisions(current: Decisions, incoming: Partial<Decisions>)
   return next;
 }
 
-export function extractFromUtterance(text: string, current: Decisions): Partial<Decisions> {
+export function extractFromUtterance(text: string, current: Decisions, step?: StepId): Partial<Decisions> {
   const raw = normalizeUtterance(text);
   const patch: Partial<Decisions> = {};
   if (!raw) return patch;
+  const at = (ids: StepId[]) => !step || ids.includes(step);
 
-  const ranking = parseRanking(raw);
-  if (ranking?.length) patch.mtpRanking = ranking;
-
-  const mtps = detectMtpMentions(raw);
-  if (mtps.length === 1 && (current.mtpRanking || /\b(pick|lock|go with|choose|working)\b/i.test(raw))) {
-    patch.mtpPick = mtps[0];
-  } else if (mtps.length === 1 && current.mtpRanking && !current.mtpPick) {
-    patch.mtpPick = mtps[0];
+  if (at(["rank", "litmus", "pick-mtp"])) {
+    const ranking = parseRanking(raw);
+    if (ranking?.length) patch.mtpRanking = ranking;
   }
 
-  const moonshot = detectMoonshot(raw);
-  if (moonshot && (!current.moonshotPick || /\b(pick|lock|choose|switch|change)\b/i.test(raw))) {
-    patch.moonshotPick = moonshot;
-    if (raw.length > 40) patch.moonshotWhy = raw;
+  if (at(["pick-mtp", "litmus", "rank"])) {
+    const mtps = detectMtpMentions(raw);
+    if (mtps.length === 1 && (current.mtpRanking || /\b(pick|lock|go with|choose|working)\b/i.test(raw))) {
+      patch.mtpPick = mtps[0];
+    } else if (mtps.length === 1 && current.mtpRanking && !current.mtpPick) {
+      patch.mtpPick = mtps[0];
+    }
   }
 
-  const applies = extractApplies(raw);
-  if (applies.reApply) patch.reApply = applies.reApply;
-  if (applies.afsApply) patch.afsApply = applies.afsApply;
-
-  if (looksLikeFifteenSecond(raw) && current.oneLiner) {
-    patch.oneLiner15 = raw;
-  } else if (looksLikeOneLiner(raw)) {
-    patch.oneLiner = raw;
+  if (at(["pick-moonshot", "applies"])) {
+    const moonshot = detectMoonshot(raw);
+    if (moonshot && (!current.moonshotPick || /\b(pick|lock|choose|switch|change)\b/i.test(raw))) {
+      patch.moonshotPick = moonshot;
+      if (raw.length > 40) patch.moonshotWhy = raw;
+    }
   }
 
-  if (/\b(refuse|identity|not for|disqualify)\b/i.test(raw)) {
+  if (at(["applies"])) {
+    const applies = extractApplies(raw);
+    if (applies.reApply) patch.reApply = applies.reApply;
+    if (applies.afsApply) patch.afsApply = applies.afsApply;
+  }
+
+  if (at(["liner"])) {
+    if (current.oneLiner && (looksLikeFifteenSecond(raw) || (raw.split(/\s+/).length >= 8 && raw.split(/\s+/).length <= 32))) {
+      patch.oneLiner15 = raw;
+    } else if (!current.oneLiner && (looksLikeOneLiner(raw) || raw.split(/\s+/).length >= 10)) {
+      patch.oneLiner = raw;
+    }
+  }
+
+  if (at(["litmus", "pick-mtp"]) && /\b(refuse|identity|not for|disqualify)\b/i.test(raw)) {
     patch.mtpLitmusNotes = raw;
   }
 
-  if (/\b(energy|tired|wired|residue|loaded|heavy|clear)\b/i.test(raw)) {
-    patch.energy = raw;
-    if (/\brevalize\b/i.test(raw)) patch.revalizeResidue = raw;
-    if (/\b(afs|re|fleet|listing)\b/i.test(raw)) patch.load = raw;
+  if (at(["welcome", "ready"])) {
+    if (/\b(energy|tired|wired|residue|loaded|heavy|clear)\b/i.test(raw)) {
+      patch.energy = raw;
+      if (/\brevalize\b/i.test(raw)) patch.revalizeResidue = raw;
+      if (/\b(afs|re|fleet|listing)\b/i.test(raw)) patch.load = raw;
+    }
   }
 
-  if (/\b(salim|diamandis|exo|deep conversation|priority)\b/i.test(raw)) {
-    patch.dayPriorities = raw;
+  if (at(["day-map", "commit"])) {
+    if (/\b(salim|diamandis|exo|deep conversation|priority)\b/i.test(raw)) {
+      patch.dayPriorities = raw;
+    }
+    if (/\b(ask|question)\b/i.test(raw) && raw.length > 20) {
+      patch.questionsToAsk = raw;
+    }
   }
-  if (/\b(ask|question)\b/i.test(raw) && raw.length > 20) {
-    patch.questionsToAsk = raw;
-  }
-  if (/\b(success|win|metric)\b/i.test(raw) && raw.length > 12) {
+
+  if (at(["commit", "done"]) && /\b(success|win|metric)\b/i.test(raw) && raw.length > 12) {
     patch.successMetric = raw;
   }
 
-  const open = extractOpenAnswers(raw);
-  if (Object.keys(open).length) patch.openAnswers = open;
+  if (at(["commit", "day-map"])) {
+    const open = extractOpenAnswers(raw);
+    if (Object.keys(open).length) patch.openAnswers = open;
+  }
 
-  if (/\b(green flag|red flag|filter|walk away)\b/i.test(raw)) {
+  if (at(["flags"]) && /\b(green flag|red flag|filter|walk away|pursue|walk)\b/i.test(raw)) {
     patch.flagsNotes = raw;
   }
 
