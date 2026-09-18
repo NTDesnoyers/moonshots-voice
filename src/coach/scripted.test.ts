@@ -43,7 +43,11 @@ describe("scripted coach", () => {
     expect(session.step).toBe("rank");
 
     session = play(session, "One opportunity routing, two relationship infrastructure, three dual-domain.");
-    expect(session.decisions.mtpRanking?.[0]).toBe("opportunity-routing");
+    expect(session.decisions.mtpRanking).toEqual([
+      "opportunity-routing",
+      "relationship-infra",
+      "dual-domain",
+    ]);
     expect(session.step).toBe("litmus");
 
     session = play(
@@ -97,6 +101,11 @@ describe("scripted coach", () => {
     expect(session.step).toBe("done");
     expect(session.decisions.successMetric).toMatch(/build partner/i);
     expect(session.decisions.mtpPick).toBe("opportunity-routing");
+    expect(session.decisions.mtpRanking).toEqual([
+      "opportunity-routing",
+      "relationship-infra",
+      "dual-domain",
+    ]);
     expect(session.decisions.moonshotPick).toBe("opportunity-os");
     expect(session.decisions.oneLiner).toMatch(/I operate in real estate/i);
     expect(session.decisions.oneLiner15).toMatch(/rewire opportunity flow/i);

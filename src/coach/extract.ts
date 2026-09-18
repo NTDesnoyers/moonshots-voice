@@ -203,7 +203,7 @@ export function extractFromUtterance(text: string, current: Decisions, step?: St
   if (!raw) return patch;
   const at = (ids: StepId[]) => !step || ids.includes(step);
 
-  if (at(["rank", "litmus", "pick-mtp"])) {
+  if (at(["rank"])) {
     const ranking = parseRanking(raw);
     if (ranking?.length) patch.mtpRanking = ranking;
   }
